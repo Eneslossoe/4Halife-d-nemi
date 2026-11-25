@@ -47,7 +47,7 @@ def narration(tl, n):
             # hafif sicaklik + netlik
             a = a + Y.bp(a, 2500, 5000) * 0.25 + Y.lp(a, 250) * 0.15
             # yumusak kompresyon
-            env = np.sqrt(Y.lp(a ** 2, 8) + 1e-9)
+            env = np.sqrt(np.maximum(Y.lp(a ** 2, 8), 0) + 1e-9)
             g = np.minimum(1.0, (0.12 / (env + 1e-9)) ** 0.35)
             a = a * g
             a = a / (np.abs(a).max() + 1e-9) * 0.82
@@ -84,7 +84,13 @@ def soundtrack_music(tl, n):
     for i, (t0, m) in enumerate(segs):
         t1 = segs[i + 1][0] if i + 1 < len(segs) else n / SR
         dur = t1 - t0 + xf
-        y = music.gen(m, dur, seed=100 + i)
+        cp = os.path.join(WORK, "music_cache", f"{i:02d}_{m}_{dur:.2f}.npy")
+        os.makedirs(os.path.dirname(cp), exist_ok=True)
+        if os.path.exists(cp):
+            y = np.load(cp)
+        else:
+            y = music.gen(m, dur, seed=100 + i)
+            np.save(cp, y.astype(np.float32))
         L = len(y)
         e = np.ones(L)
         fi = int(0.6 * SR)
@@ -114,6 +120,8 @@ def cues(tl):
 
     def amb(sh, x, g, t0=0.0, t1=None, fade=0.5):
         t1 = sh.d if t1 is None else t1
+        if x.ndim == 1:
+            x = np.stack([x, x], axis=1)
         L = int((t1 - t0) * SR)
         x = x[:L]
         if len(x) < L:
@@ -495,6 +503,11 @@ def build():
     for t, x, g in cues(tl):
         place(fx, x, t, g)
     fxm = (1.0 - 0.35 * mask)[:, None]
+    for nm, arr in (("anlatim", nar), ("muzik", mus), ("efekt", fx)):
+        bad = ~np.isfinite(arr)
+        if bad.any():
+            print("UYARI: NaN/Inf ->", nm, int(bad.sum()))
+            arr[bad] = 0.0
     mix = nar * 1.0 + mus * 0.55 + fx * 0.55 * fxm
     # yumusak limitleyici
     pk = np.abs(mix).max()

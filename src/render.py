@@ -84,62 +84,58 @@ def stills(args):
     return outs
 
 
-def worker(wid, frames, shots, seg_path):
+def render_shot(args):
+    si, shot, force = args
+    seg = os.path.join(OUTDIR, f"shot_{shot['id']}.mp4")
+    if os.path.exists(seg) and not force:
+        return seg
     fns = load_fns()
     arr = np.zeros((H, W, 4), np.uint8)
     surf = skia.Surface(arr, colorType=skia.kRGBA_8888_ColorType)
     cv = surf.getCanvas()
+    f0 = round(shot["start"] * FPS)
+    f1 = round((shot["start"] + shot["dur"]) * FPS)
+    tmp = seg + ".tmp.mp4"
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgba", "-s", f"{W}x{H}", "-r",
            str(FPS), "-i", "-", "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-pix_fmt", "yuv420p",
-           "-threads", "2", seg_path]
+           "-threads", "1", tmp]
     pr = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     t0 = time.time()
-    n = 0
-    for (si, t) in frames:
-        render_frame(cv, fns, shots[si], t)
+    for f in range(f0, f1):
+        render_frame(cv, fns, shot, (f - f0) / FPS)
         pr.stdin.write(arr.tobytes())
-        n += 1
-        if n % 300 == 0:
-            el = time.time() - t0
-            print(f"[w{wid}] {n}/{len(frames)} kare, {n / el:.1f} fps", flush=True)
     pr.stdin.close()
     pr.wait()
-    print(f"[w{wid}] bitti {n} kare {time.time() - t0:.0f}s", flush=True)
+    os.replace(tmp, seg)
+    print(f"{shot['id']} {f1 - f0} kare {time.time() - t0:.0f}s", flush=True)
+    return seg
 
 
-def video(workers=4, only=None):
+def video(workers=4, only=None, force=False):
+    from multiprocessing import Pool
     tl = load_timeline()
     shots = tl["shots"]
-    frames = []
+    jobs = []
     for si, s in enumerate(shots):
         if only and s["id"] not in only:
             continue
-        f0 = round(s["start"] * FPS)
-        f1 = round((s["start"] + s["dur"]) * FPS)
-        for f in range(f0, f1):
-            frames.append((si, (f - f0) / FPS))
-    n = len(frames)
-    chunk = math.ceil(n / workers)
-    procs, segs = [], []
-    for w in range(workers):
-        part = frames[w * chunk:(w + 1) * chunk]
-        if not part:
-            continue
-        seg = os.path.join(OUTDIR, f"seg_{w}.mp4")
-        segs.append(seg)
-        pr = Process(target=worker, args=(w, part, shots, seg))
-        pr.start()
-        procs.append(pr)
-    for pr in procs:
-        pr.join()
+        jobs.append((si, s, force or bool(only)))
+    jobs.sort(key=lambda j: -j[1]["dur"])
+    with Pool(workers) as pool:
+        for _ in pool.imap_unordered(render_shot, jobs):
+            pass
+    missing = [s["id"] for s in shots if not os.path.exists(os.path.join(OUTDIR, f"shot_{s['id']}.mp4"))]
+    if missing:
+        print("eksik sahneler:", missing)
+        return
     lst = os.path.join(OUTDIR, "segs.txt")
     with open(lst, "w") as f:
-        for s in segs:
-            f.write(f"file '{s}'\n")
+        for s in shots:
+            f.write(f"file '{os.path.join(OUTDIR, 'shot_' + s['id'] + '.mp4')}'\n")
     out = os.path.join(OUTDIR, "video_noaudio.mp4")
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-c", "copy", out],
                    check=True)
-    print("video:", out, n, "kare")
+    print("video:", out)
 
 
 if __name__ == "__main__":
@@ -153,4 +149,4 @@ if __name__ == "__main__":
             w = int(a[a.index("--workers") + 1])
         if "--only" in a:
             only = set(a[a.index("--only") + 1].split(","))
-        video(w, only)
+        video(w, only, "--force" in a)

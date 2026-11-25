@@ -80,7 +80,7 @@ def hook_question(cv, t, d, p):
     cv.save()
     cv.translate(W / 2, H / 2)
     cv.scale(z, z)
-    cv.translate(-lerp(960, 560, zf), -lerp(540, 620, zf))
+    cv.translate(-lerp(960, 640, zf), -lerp(540, 620, zf))
     # sol: col mavisi, sag: saray
     left = poly([(0, 0), (1060, 0), (860, H), (0, H)])
     right = poly([(1060, 0), (W, 0), (W, H), (860, H)])
