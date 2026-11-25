@@ -66,7 +66,11 @@ def speech_mask(tl, n):
             b = int((s["start"] + l["end"] + 0.25) * SR)
             m[max(a, 0):min(b, n)] = 1.0
     k = int(0.25 * SR)
-    m = np.convolve(m, np.ones(k) / k, mode="same")
+    c = np.concatenate([[0.0], np.cumsum(m)])
+    idx = np.arange(n)
+    lo = np.clip(idx - k // 2, 0, n)
+    hi = np.clip(idx + k // 2, 0, n)
+    m = (c[hi] - c[lo]) / k
     return np.clip(m, 0, 1)
 
 
@@ -261,7 +265,7 @@ def cues(tl):
     sh = S["s24"]
     pops(sh, [0.6, 1.1, 1.6], 0.4)
     t1 = sh.lt(1) - 0.2
-    amb(sh, Y.gallop(sh.d - t1, 10, 1.0, 5, 0.38), 0.9, t1, sh.d)
+    amb(sh, Y.gallop(sh.d - t1, 10, 1.0, 5, 0.38), 0.5, t1, sh.d)
     add(sh.t0 + t1 + 0.6, Y.impact(0.8), 0.5)
     amb(sh, Y.crowd_roar(sh.d - t1, 1.0, 12, shouts=True, clashes=False, density=0.5), 0.25, t1, sh.d)
     sh = S["s25"]
@@ -332,7 +336,7 @@ def cues(tl):
         add(sh.t0 + t1 + 0.8 + k * 0.5, Y.thunk(0.8, k), 0.4)
     sh = S["s37"]
     add(sh.t0 + 0.15, Y.big_drum(1.0), 0.5)
-    amb(sh, Y.crowd_roar(sh.d, 1.0, 21, shouts=True, clashes=True, density=1.6), 0.55)
+    amb(sh, Y.crowd_roar(sh.d, 1.0, 21, shouts=True, clashes=True, density=1.6), 0.4)
     sh = S["s38"]
     add(sh.t0 + 0.15, Y.big_drum(1.0), 0.5)
     amb(sh, Y.crowd_roar(sh.d, 1.0, 22, shouts=True, clashes=False, density=0.6), 0.3)
@@ -358,7 +362,7 @@ def cues(tl):
     sh = S["s40"]
     cr = Y.crowd_roar(sh.d, 1.0, 25, shouts=True, clashes=True, density=1.0)
     cr = np.stack([Y.lp(cr[:, 0], 500), Y.lp(cr[:, 1], 500)], axis=1)
-    amb(sh, cr, 0.6)
+    amb(sh, cr, 0.4)
     n_ = int(sh.d * SR)
     tin = np.sin(2 * np.pi * 4200 * np.arange(n_) / SR) * 0.02
     amb(sh, np.stack([tin, tin], axis=1), 0.6)
@@ -369,7 +373,7 @@ def cues(tl):
     add(sh.t0 + t2, Y.impact(0.8), 0.5)
     sh = S["s42"]
     add(sh.t0 + 0.1, Y.big_drum(1.0), 0.6)
-    amb(sh, Y.gallop(sh.d, 16, 1.0, 9, 0.36), 1.0)
+    amb(sh, Y.gallop(sh.d, 16, 1.0, 9, 0.36), 0.4)
     amb(sh, Y.crowd_roar(sh.d, 1.0, 27, shouts=True, clashes=True, density=1.2), 0.45)
     sh = S["s43"]
     t1 = sh.lt(1) - 0.2
@@ -497,18 +501,18 @@ def build():
     print("muzik...", flush=True)
     mus = soundtrack_music(tl, n)
     mask = speech_mask(tl, n)
-    mus *= (1.0 - 0.62 * mask)[:, None]
+    mus *= (1.0 - 0.7 * mask)[:, None]
     print("efektler...", flush=True)
     fx = np.zeros((n, 2))
     for t, x, g in cues(tl):
         place(fx, x, t, g)
-    fxm = (1.0 - 0.35 * mask)[:, None]
+    fxm = (1.0 - 0.5 * mask)[:, None]
     for nm, arr in (("anlatim", nar), ("muzik", mus), ("efekt", fx)):
         bad = ~np.isfinite(arr)
         if bad.any():
             print("UYARI: NaN/Inf ->", nm, int(bad.sum()))
             arr[bad] = 0.0
-    mix = nar * 1.0 + mus * 0.55 + fx * 0.55 * fxm
+    mix = nar * 1.0 + mus * 0.45 + fx * 0.42 * fxm
     # yumusak limitleyici
     pk = np.abs(mix).max()
     print("tepe:", round(float(pk), 3))

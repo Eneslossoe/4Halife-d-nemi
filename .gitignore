@@ -1,2 +1,5 @@
 __pycache__/
 *.pyc
+# GitHub 100 MB sınırını aşan tam kalite video (doğrudan iletildi)
+output/halife_askeri_olsaydin.mp4
+output/*.tmp*
