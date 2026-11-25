@@ -8,7 +8,7 @@ stok içerik veya ElevenLabs kullanılmamıştır.
 
 | Dosya | Açıklama |
 |---|---|
-| `halife_askeri_olsaydin.mp4` | 1920×1080, 30 fps, ~12,5 dk final video |
+| `halife_askeri_olsaydin_github.mp4` | 1920×1080, 30 fps, 12:27 final video (GitHub 100 MB sınırı için sıkıştırılmış kopya; tam kalite sürüm sohbette ayrıca iletildi) |
 | `kucuk_resim.jpg` | 1280×720 YouTube küçük resmi (kanal stilinde) |
 | `kucuk_resim_1080p.png` | Küçük resmin yüksek çözünürlüklü hâli |
 | `altyazi_tr.srt` | Türkçe altyazı (YouTube'a yüklenebilir) |
